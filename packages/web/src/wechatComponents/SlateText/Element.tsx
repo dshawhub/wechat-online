@@ -4,6 +4,7 @@ import { twJoin, twMerge } from "tailwind-merge";
 import type { CustomElementEmoji } from "@/vite-env";
 
 import { EMOJI_ARRAY } from "./utils";
+import { EMOJI_SPRITE } from "@/assets/cdn";
 
 export type TElementOtherProps = {
 	readOnly?: boolean;
@@ -39,7 +40,7 @@ export const EmojiElement = (props: ElementProps) => {
 				classNames?.emojiInnerClassName,
 			)}
 			style={{
-				backgroundImage: "url(https://cdn-fakeworld.azureedge.net/fakeworld/emoji-sprite.png)",
+				backgroundImage: `url(${EMOJI_SPRITE})`,
 				...EMOJI_ARRAY[y][x]?.preview,
 			}}
 			data-playwright-selected={selected}

@@ -2,80 +2,184 @@ import useDeviceConfig from "@/components/useDeviceConfig";
 import { modeAtom } from "@/stateV2/mode";
 import { sleep } from "@/utils";
 import { CameraOutlined } from "@ant-design/icons";
-import { App, Button, type ButtonProps } from "antd";
+import { App, Button, Spin, type ButtonProps } from "antd";
 import { saveAs } from "file-saver";
 import { useSetAtom } from "jotai";
-import { noop } from "lodash-es";
-import { browserName, browserVersion } from "react-device-detect";
-import { checkCanDirectCreateScreenshot, drawToCanvas } from "./utils";
+import { domToBlob } from "modern-screenshot";
+import { useState } from "react";
+import { createPortal } from "react-dom";
+import {
+	ensureScreenshotPermission,
+	getWechatChatBridge,
+	openExternalLogin,
+	type ScreenshotPermissionResult,
+} from "./permission";
 
 type Props = {
 	buttonProps?: ButtonProps;
 };
 
 const ScreenshotButton = ({ buttonProps }: Props) => {
-	const { message } = App.useApp();
+	const { message, modal } = App.useApp();
 	const { screenSize } = useDeviceConfig();
 	const setMode = useSetAtom(modeAtom);
+	const [pageLoading, setPageLoading] = useState(false);
+	const [pageLoadingTip, setPageLoadingTip] = useState("加载中...");
 
-	/**
-	 * 创建截图的处理函数
-	 * 流程：切换预览模式 -> 检查浏览器兼容性 -> 获取屏幕流 -> 裁剪区域 -> 生成截图 -> 下载
-	 */
-	const handleCreateScreenshot = async () => {
-		// 切换到预览模式，隐藏编辑工具栏等 UI 元素
-		setMode("preview");
-
-		// 检查当前浏览器是否支持直接截图功能
-		try {
-			checkCanDirectCreateScreenshot({
-				browserName,
-				browserVersion,
-			});
-		} catch (e: any) {
-			message.error(e?.message);
-		}
-
-		// 请求屏幕共享权限，获取媒体流
-		// preferCurrentTab: true 建议浏览器优先选择当前标签页
-		const stream = await navigator.mediaDevices
-			.getDisplayMedia({
-				video: true,
-				audio: false,
-				preferCurrentTab: true,
-			})
-			.catch(noop);
-		if (!stream) return;
-
-		// 等待 UI 渲染稳定（切换到预览模式后的动画和布局调整）
-		await sleep(700);
-
-		// 获取需要截图的目标元素
-		const screenElement = document.querySelector("#screen") as HTMLDivElement;
-
-		// 如果窗口高度小于设备尺寸，调整元素高度以适应视口
-		const innerHeight = window.innerHeight;
-		if (innerHeight < screenSize.height) {
-			screenElement.style.height = `${innerHeight}px`;
-		}
-
-		// 使用 Region Capture API 将视频流裁剪到目标元素边界
-		const [videoTrack] = stream.getVideoTracks();
-		const cropTarget = await CropTarget.fromElement(screenElement);
-		await videoTrack.cropTo(cropTarget);
-
-		// 将视频流绘制到 canvas 上
-		const canvas = await drawToCanvas(stream);
-
-		// 将 canvas 转换为 blob 并下载，完成后停止视频轨道并刷新页面
-		canvas.toBlob((blob) => {
-			saveAs(blob!, "screenshot.png");
-			videoTrack.stop();
-			location.reload();
-		});
+	const showPageLoading = (tip: string) => {
+		setPageLoadingTip(tip);
+		setPageLoading(true);
 	};
 
-	return <Button onClick={handleCreateScreenshot} icon={<CameraOutlined />} {...buttonProps} />;
+	const hidePageLoading = () => {
+		setPageLoading(false);
+	};
+
+	/**
+	 * 创建截图：权限校验 -> 预览模式 -> DOM 导出（不含水印）-> 下载
+	 */
+	const handleCreateScreenshot = async () => {
+		const bridge = getWechatChatBridge();
+		const loadingText = bridge?.loadingText || "加载中...";
+
+		if (bridge && !bridge.isLogin) {
+			const opened = openExternalLogin();
+			if (!opened) {
+				modal.warning({
+					title: bridge.confirmTitle || "提示",
+					content: bridge.notLoggedInMessage || "请先登录",
+					okText: bridge.confirmOkText || "确定",
+				});
+			}
+			return;
+		}
+
+		const permission = await ensureScreenshotPermission({
+			confirmAndValidate: (content, validate) =>
+				new Promise<ScreenshotPermissionResult | null>((resolve) => {
+					let settled = false;
+					modal.confirm({
+						title: bridge?.confirmTitle || "确认操作",
+						content,
+						okText: bridge?.confirmOkText || "确定",
+						cancelText: bridge?.confirmCancelText || "取消",
+						onOk: async () => {
+							const result = await validate();
+							if (!result.ok) {
+								if (result.message === bridge?.notLoggedInMessage) {
+									const opened = openExternalLogin();
+									if (!opened) {
+										modal.warning({
+											title: bridge?.confirmTitle || "提示",
+											content: result.message || "请先登录",
+											okText: bridge?.confirmOkText || "确定",
+										});
+									}
+								} else if (result.message) {
+									message.error(result.message);
+								}
+								settled = true;
+								resolve(null);
+								throw new Error(result.message || "权限验证失败");
+							}
+							settled = true;
+							resolve(result);
+						},
+						onCancel: () => {
+							if (!settled) resolve(null);
+						},
+					});
+				}),
+			validateWithLoading: async (validate) => {
+				showPageLoading(loadingText);
+				try {
+					return await validate();
+				} finally {
+					hidePageLoading();
+				}
+			},
+		});
+
+		if (!permission?.ok) {
+			if (permission && bridge?.isVip && permission.message) {
+				message.error(permission.message);
+			}
+			return;
+		}
+
+		if (permission.sleepTime > 0) {
+			showPageLoading(loadingText);
+			await sleep(permission.sleepTime * 1000);
+			hidePageLoading();
+		}
+
+		setMode("preview");
+		await sleep(150);
+
+		const screenElement = document.querySelector("#screen") as HTMLDivElement | null;
+		if (!screenElement) {
+			message.error("未找到预览区域");
+			return;
+		}
+
+		const watermark = document.querySelector("[data-preview-watermark]") as HTMLElement | null;
+		if (watermark) watermark.style.visibility = "hidden";
+
+		showPageLoading("正在生成截图...");
+		try {
+			const width = Math.max(1, Math.round(screenSize.width || screenElement.offsetWidth));
+			const height = Math.max(1, Math.round(screenSize.height || screenElement.offsetHeight));
+
+			const blob = await domToBlob(screenElement, {
+				width,
+				height,
+				scale: Math.min(window.devicePixelRatio || 2, 3),
+				backgroundColor: "#ffffff",
+				// 上传头像等为 blob: URL，Worker 无法访问，强制主线程导出
+				workerNumber: 0,
+				filter: (node) => {
+					if (!(node instanceof Element)) return true;
+					return !node.hasAttribute("data-preview-watermark");
+				},
+			});
+
+			if (!blob) {
+				throw new Error("截图生成失败");
+			}
+
+			const filename = `52gj_wechat_${Date.now()}.png`;
+			saveAs(blob, filename);
+			message.success("下载成功");
+		} catch (e: any) {
+			message.error(e?.message || "截图失败，请重试");
+		} finally {
+			if (watermark) watermark.style.visibility = "";
+			hidePageLoading();
+		}
+	};
+
+	return (
+		<>
+			<Button onClick={handleCreateScreenshot} icon={<CameraOutlined />} {...buttonProps} />
+			{pageLoading &&
+				createPortal(
+					<div
+						style={{
+							position: "fixed",
+							inset: 0,
+							zIndex: 10000,
+							display: "flex",
+							alignItems: "center",
+							justifyContent: "center",
+							background: "rgba(255, 255, 255, 0.45)",
+						}}
+					>
+						<Spin size="large" tip={pageLoadingTip} />
+					</div>,
+					document.body,
+				)}
+		</>
+	);
 };
 
 export default ScreenshotButton;

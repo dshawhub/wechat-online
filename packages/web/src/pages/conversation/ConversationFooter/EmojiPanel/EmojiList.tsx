@@ -1,3 +1,4 @@
+import { EMOJI_SPRITE } from "@/assets/cdn";
 import { recentUsedEmojiAtom } from "@/stateV2/conversation";
 import { EMOJI_ARRAY } from "@/wechatComponents/SlateText/utils";
 import { useAtomValue } from "jotai";
@@ -27,7 +28,7 @@ const EmojiList = ({ onEmojiClick, className }: Props) => {
 								className="h-6 w-6 origin-center cursor-pointer bg-no-repeat"
 								style={{
 									backgroundImage:
-										"url(https://cdn-fakeworld.azureedge.net/fakeworld/emoji-sprite.png)",
+										`url(${EMOJI_SPRITE})`,
 									...EMOJI_ARRAY[y][x]!.panel,
 								}}
 							/>
@@ -60,7 +61,7 @@ const EmojiList = ({ onEmojiClick, className }: Props) => {
 										)}
 										style={{
 											backgroundImage: style
-												? "url(https://cdn-fakeworld.azureedge.net/fakeworld/emoji-sprite.png)"
+												? `url(${EMOJI_SPRITE})`
 												: undefined,
 											...style?.panel,
 										}}

@@ -22,20 +22,6 @@ declare module "slate" {
 }
 
 declare global {
-	interface DisplayMediaStreamOptions {
-		preferCurrentTab?: boolean;
-	}
-
-	interface MediaStreamTrack {
-		cropTo: (element: Element) => Promise<unknown>;
-	}
-
-	interface CropTarget {
-		fromElement: (element: Element) => Promise<Element>;
-	}
-
-	declare const CropTarget: CropTarget;
-
 	interface Window {
 		setDevice: (v: string) => void;
 	}

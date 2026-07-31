@@ -1,4 +1,5 @@
 import type { IFeedComment, IStateFeed } from "@/stateV2/moments";
+import { PNQXLD, PNR1BD, PNR1OF, PNR4UB } from "@/assets/cdn";
 import dayjs from "dayjs";
 import { MYSELF_ID } from "../user";
 
@@ -51,8 +52,8 @@ export const INIT_FEEDS: IStateFeed[] = [
 			type: "textWithImages",
 			text: [{ type: "paragraph", children: [{ text: "我是星之卡比" }] }],
 			imagesInfo: [
-				"https://cdn-fakeworld.azureedge.net/fakeworld/pnqxld.jpg",
-				"https://cdn-fakeworld.azureedge.net/fakeworld/pnr4ub.jpg",
+				PNQXLD,
+				PNR4UB,
 			],
 		},
 		comments: [
@@ -76,7 +77,7 @@ export const INIT_FEEDS: IStateFeed[] = [
 		content: {
 			type: "textWithImages",
 			text: [{ type: "paragraph", children: [{ text: "我是路易吉" }] }],
-			imagesInfo: ["https://cdn-fakeworld.azureedge.net/fakeworld/pnr1bd.jpg"],
+			imagesInfo: [PNR1BD],
 		},
 		likeUserIds: ["1"],
 	},
@@ -89,7 +90,7 @@ export const INIT_FEEDS: IStateFeed[] = [
 			text: [
 				{ type: "paragraph", children: [{ text: "我是马里奥，这是我的新视频，希望大家能喜欢！" }] },
 			],
-			videoInfo: "https://cdn-fakeworld.azureedge.net/fakeworld/pnr1of.jpg",
+			videoInfo: PNR1OF,
 		},
 		likeUserIds: ["2", "3", "1", "4"],
 		comments: [

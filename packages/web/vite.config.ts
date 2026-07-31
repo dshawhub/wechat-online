@@ -5,6 +5,7 @@ import svgr from "vite-plugin-svgr";
 
 // https://vitejs.dev/config/
 export default defineConfig({
+	base: "/vendor/wechat-online/packages/web/dist/",
 	plugins: [
 		react({ jsxImportSource: "@emotion/react" }),
 		svgr(),

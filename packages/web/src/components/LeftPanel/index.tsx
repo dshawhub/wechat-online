@@ -28,7 +28,7 @@ const LeftPanel = () => {
 			key: EMenus.Code,
 			icon: <CodeOutlined />,
 			title: t("menu.code"),
-		}
+		},
 	];
 
 	return (

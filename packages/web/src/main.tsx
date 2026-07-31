@@ -15,7 +15,8 @@ import { initDayjs } from "./time.ts";
 initDayjs();
 initDBImagesCacheStore();
 
-const router = createBrowserRouter(routes);
+const basename = "/wechat-chat/app";
+const router = createBrowserRouter(routes, { basename });
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
 	<React.StrictMode>

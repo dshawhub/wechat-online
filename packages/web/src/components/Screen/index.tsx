@@ -6,6 +6,7 @@ import { Outlet } from "react-router-dom";
 
 import Fallback from "../Fallback";
 import DetectedOverall from "../NodeDetected/DetectedFloating";
+import PreviewWatermark from "../PreviewWatermark";
 import StatusBar from "../StatusBar";
 import useDeviceConfig from "../useDeviceConfig";
 
@@ -33,6 +34,8 @@ const Screen = () => {
 			<ErrorBoundary FallbackComponent={Fallback}>
 				<Outlet />
 			</ErrorBoundary>
+			{/* 置于末尾，避免影响状态栏对 nextSibling 的背景色探测 */}
+			<PreviewWatermark />
 		</div>
 	);
 };
