@@ -5,7 +5,7 @@ import svgr from "vite-plugin-svgr";
 
 // https://vitejs.dev/config/
 export default defineConfig({
-	base: "/vendor/wechat-online/packages/web/dist/",
+	base: "/vendor/wechat/",
 	plugins: [
 		react({ jsxImportSource: "@emotion/react" }),
 		svgr(),
@@ -19,6 +19,8 @@ export default defineConfig({
 		},
 	},
 	build: {
+		outDir: path.resolve(__dirname, "../../../wechat"),
+		emptyOutDir: true,
 		chunkSizeWarningLimit: 1024,
 		rollupOptions: {
 			output: {
