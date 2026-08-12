@@ -1,7 +1,7 @@
 import useDeviceConfig from "@/components/useDeviceConfig";
 import { modeAtom } from "@/stateV2/mode";
 import { sleep } from "@/utils";
-import { CameraOutlined } from "@ant-design/icons";
+import { DownloadOutlined } from "@ant-design/icons";
 import { App, Button, Spin, type ButtonProps } from "antd";
 import { saveAs } from "file-saver";
 import { useSetAtom } from "jotai";
@@ -127,16 +127,23 @@ const ScreenshotButton = ({ buttonProps }: Props) => {
 
 		showPageLoading("正在生成截图...");
 		try {
-			const width = Math.max(1, Math.round(screenSize.width || screenElement.offsetWidth));
-			const height = Math.max(1, Math.round(screenSize.height || screenElement.offsetHeight));
+			// 用实际布局尺寸，避免与配置尺寸不一致导致拉伸发糊
+			const width = Math.max(1, Math.round(screenElement.offsetWidth || screenSize.width));
+			const height = Math.max(1, Math.round(screenElement.offsetHeight || screenSize.height));
+			// 至少 3x，保证下载图清晰；上限 4 兼顾体积
+			const scale = Math.max(3, Math.min(window.devicePixelRatio || 3, 4));
 
 			const blob = await domToBlob(screenElement, {
 				width,
 				height,
-				scale: Math.min(window.devicePixelRatio || 2, 3),
+				scale,
 				backgroundColor: "#ffffff",
 				// 上传头像等为 blob: URL，Worker 无法访问，强制主线程导出
 				workerNumber: 0,
+				// 默认关闭；开启后按当前滚动位置截图（聊天列表等）
+				features: {
+					restoreScrollPosition: true,
+				},
 				filter: (node) => {
 					if (!(node instanceof Element)) return true;
 					return !node.hasAttribute("data-preview-watermark");
@@ -160,7 +167,9 @@ const ScreenshotButton = ({ buttonProps }: Props) => {
 
 	return (
 		<>
-			<Button onClick={handleCreateScreenshot} icon={<CameraOutlined />} {...buttonProps} />
+			<Button onClick={handleCreateScreenshot} icon={<DownloadOutlined />} {...buttonProps}>
+				下载
+			</Button>
 			{pageLoading &&
 				createPortal(
 					<div
