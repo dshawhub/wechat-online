@@ -53,18 +53,10 @@ function getParentWindows(): ParentWithLogin[] {
 
 
 /**
- * 从当前 SPA 路径解析权限 type：
- * /wechat-chat/app/conversation/1 => wechat conversation/1
- * /wechat-chat/app/group-conversation/group_demo1 => wechat group-conversation/group_demo1
+ * 下载权限 type 固定为 wechat app
  */
 function resolvePermissionType(): string {
-	const basename = "/wechat-chat/app";
-	let pathname = window.location.pathname;
-	if (pathname.startsWith(basename)) {
-		pathname = pathname.slice(basename.length);
-	}
-	pathname = pathname.replace(/^\/+|\/+$/g, "");
-	return pathname ? `wechat ${pathname}` : "wechat home";
+	return "wechat app";
 }
 
 /**
