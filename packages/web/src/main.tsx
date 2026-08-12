@@ -15,7 +15,7 @@ import { initDayjs } from "./time.ts";
 initDayjs();
 initDBImagesCacheStore();
 
-const basename = "/wechat-chat/app";
+const basename = "/wechat/app";
 const router = createBrowserRouter(routes, { basename });
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
