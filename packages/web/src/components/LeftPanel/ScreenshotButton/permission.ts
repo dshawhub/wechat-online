@@ -53,9 +53,20 @@ function getParentWindows(): ParentWithLogin[] {
 
 
 /**
- * 下载权限 type 固定为 wechat app
+ * 下载权限 type：读取父页面 URL 首段路径（如 /wechat-chat => wechat-chat）
+ * 读不到则默认 wechat app
  */
 function resolvePermissionType(): string {
+	for (const parent of getParentWindows()) {
+		try {
+			const pathname = parent.location?.pathname;
+			if (!pathname) continue;
+			const slug = String(pathname).replace(/^\/+|\/+$/g, "").split("/")[0];
+			if (slug) return slug;
+		} catch {
+			// cross-origin 忽略
+		}
+	}
 	return "wechat app";
 }
 
