@@ -53,7 +53,7 @@ function getParentWindows(): ParentWithLogin[] {
 
 
 /**
- * 下载权限 type：读取父页面 URL 首段路径（如 /wechat-chat => wechat-chat）
+ * 下载权限 type：读取父页面 URL 首段路径（如 /wechat-success => wechat success）
  * 读不到则默认 wechat app
  */
 function resolvePermissionType(): string {
@@ -62,7 +62,7 @@ function resolvePermissionType(): string {
 			const pathname = parent.location?.pathname;
 			if (!pathname) continue;
 			const slug = String(pathname).replace(/^\/+|\/+$/g, "").split("/")[0];
-			if (slug) return slug;
+			if (slug) return slug.replace(/-/g, " ");
 		} catch {
 			// cross-origin 忽略
 		}
