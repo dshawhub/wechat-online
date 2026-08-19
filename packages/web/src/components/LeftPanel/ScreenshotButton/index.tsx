@@ -101,7 +101,46 @@ const ScreenshotButton = ({ buttonProps }: Props) => {
 		});
 
 		if (!permission?.ok) {
-			if (permission && bridge?.isVip && permission.message) {
+			if (permission?.code === 3999) {
+				const prefix = (window.parent !== window && (window.parent as any).LANG_PREFIX) || (window as any).LANG_PREFIX || "";
+				const vipUrl = `${prefix}/vip`;
+				modal.confirm({
+					title: bridge?.confirmTitle || "提示",
+					content: permission.message || "该功能仅限会员使用",
+					okText: bridge?.confirmOkText || "确定",
+					cancelText: bridge?.confirmCancelText || "取消",
+					onOk: () => {
+						try {
+							(window.top || window).location.href = vipUrl;
+						} catch {
+							window.location.href = vipUrl;
+						}
+					},
+				});
+				return;
+			}
+			if (permission?.code === 2999) {
+				const tip =
+					permission.message ||
+					(window.parent as any)?.NOTIFICATION_LANG?.point_insufficient ||
+					"您的积分不足，请到小程序端免费获取积分！";
+				try {
+					const parentShow = (window.parent as any)?.showMessage;
+					if (typeof parentShow === "function") {
+						parentShow(tip);
+					} else {
+						message.error(tip);
+					}
+					const btn = window.parent?.document?.querySelector("#get-points-btn") as HTMLElement | null;
+					if (btn) {
+						btn.click();
+						return;
+					}
+				} catch {
+					message.error(tip);
+				}
+			}
+			if (permission?.message) {
 				message.error(permission.message);
 			}
 			return;

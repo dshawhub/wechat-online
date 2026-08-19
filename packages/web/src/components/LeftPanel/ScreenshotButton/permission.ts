@@ -24,6 +24,7 @@ type PermissionApiResult = {
 export type ScreenshotPermissionResult = {
 	ok: boolean;
 	sleepTime: number;
+	code?: number;
 	message?: string;
 };
 
@@ -39,7 +40,10 @@ export function getWechatChatBridge(): WechatChatBridge | undefined {
 
 type ParentWithLogin = Window & {
 	showLanguageLogin?: () => void;
+	showConfirm?: (msg: string, ok?: () => void) => void;
+	LANG_PREFIX?: string;
 	document: Document;
+	location: Location;
 };
 
 function getParentWindows(): ParentWithLogin[] {
@@ -52,22 +56,41 @@ function getParentWindows(): ParentWithLogin[] {
 }
 
 
+function resolveParentBodyAttr(name: string): string {
+	for (const parent of getParentWindows()) {
+		try {
+			const val = parent.document?.body?.getAttribute(name);
+			if (val) return String(val);
+		} catch {
+			// cross-origin 忽略
+		}
+	}
+	return "";
+}
+
 /**
- * 下载权限 type：读取父页面 URL 首段路径（如 /wechat-success => wechat success）
- * 读不到则默认 wechat app
+ * 工具 slug：优先父页 data-tool-slug，其次 URL 首段，默认 wechat-app
  */
-function resolvePermissionType(): string {
+function resolvePermissionSlug(): string {
+	const fromBody = resolveParentBodyAttr("data-tool-slug");
+	if (fromBody) return fromBody;
+
 	for (const parent of getParentWindows()) {
 		try {
 			const pathname = parent.location?.pathname;
 			if (!pathname) continue;
 			const slug = String(pathname).replace(/^\/+|\/+$/g, "").split("/")[0];
-			if (slug) return slug.replace(/-/g, " ");
+			if (slug) return slug;
 		} catch {
 			// cross-origin 忽略
 		}
 	}
-	return "wechat app";
+	return "wechat-app";
+}
+
+/** 计费类型：父页 data-pricing-type，默认 free */
+function resolvePricingType(): string {
+	return resolveParentBodyAttr("data-pricing-type") || "free";
 }
 
 /**
@@ -143,7 +166,7 @@ async function parsePermissionResponse(
 async function requestValidatePermission(bridge: WechatChatBridge): Promise<PermissionApiResult> {
 	const csrfToken = resolveCsrfToken(bridge.csrfToken);
 	const body = new URLSearchParams();
-	body.set("type", resolvePermissionType());
+	body.set("slug", resolvePermissionSlug());
 	body.set("_token", csrfToken);
 
 	const response = await fetch(bridge.validatePermissionUrl, {
@@ -167,13 +190,14 @@ function mapPermissionResult(
 ): ScreenshotPermissionResult {
 	if (result.code === 200) {
 		const sleepTime = result.data?.is_vip ? 0 : Number(result.data?.sleep_time || 0);
-		return { ok: true, sleepTime, message: result.message || "操作成功" };
+		return { ok: true, sleepTime, code: 200, message: result.message || "操作成功" };
 	}
 
 	if (result.code === 1999) {
 		return {
 			ok: false,
 			sleepTime: 0,
+			code: 1999,
 			message: result.message || bridge.notLoggedInMessage,
 		};
 	}
@@ -182,13 +206,24 @@ function mapPermissionResult(
 		return {
 			ok: false,
 			sleepTime: 0,
+			code: 2999,
 			message: result.message || "积分不足",
+		};
+	}
+
+	if (result.code === 3999) {
+		return {
+			ok: false,
+			sleepTime: 0,
+			code: 3999,
+			message: result.message || "该功能仅限会员使用",
 		};
 	}
 
 	return {
 		ok: false,
 		sleepTime: 0,
+		code: result.code || 1000,
 		message: result.message || "权限验证失败",
 	};
 }
@@ -217,7 +252,25 @@ export async function ensureScreenshotPermission(options: {
 		return {
 			ok: false,
 			sleepTime: 0,
+			code: 1999,
 			message: bridge.notLoggedInMessage,
+		};
+	}
+
+	// vip 工具：非会员前端直接拦截，不必先打接口
+	if (resolvePricingType() === "vip" && !bridge.isVip) {
+		let tip = "该功能仅限会员使用，请开通会员后继续";
+		try {
+			const parentLang = (window.parent as any)?.NOTIFICATION_LANG;
+			if (parentLang?.vip_required) tip = parentLang.vip_required;
+		} catch {
+			// ignore
+		}
+		return {
+			ok: false,
+			sleepTime: 0,
+			code: 3999,
+			message: tip,
 		};
 	}
 
@@ -229,12 +282,14 @@ export async function ensureScreenshotPermission(options: {
 			return {
 				ok: false,
 				sleepTime: 0,
+				code: 1000,
 				message: error?.message || "权限验证失败，请重试",
 			};
 		}
 	};
 
-	if (!bridge.isVip) {
+	const needConfirm = resolvePricingType() === "points" && !bridge.isVip;
+	if (needConfirm) {
 		const confirmed = await options.confirmAndValidate(bridge.pointsConsumeConfirm, validate);
 		if (!confirmed) {
 			return { ok: false, sleepTime: 0 };
