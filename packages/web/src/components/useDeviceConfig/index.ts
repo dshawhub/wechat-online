@@ -10,10 +10,9 @@ export default function useDeviceConfig() {
 		height: number;
 	};
 	if (device === MOBILE_LIST.AUTO) {
-		// 自动模式跟随中间预览区域变化。顶部需要为模式切换浮层预留空间，
-		// 预览屏幕靠下放置，因此无需在底部重复保留同样高度的空白。
 		const horizontalGutter = 30;
-		const verticalGutter = 72;
+		// TopPopover 已隐藏，不再预留顶部浮层空间
+		const verticalGutter = 16;
 		screenSize = {
 			width: Math.max(0, (size?.width ?? 0) - horizontalGutter),
 			height: Math.max(0, (size?.height ?? 0) - verticalGutter),
